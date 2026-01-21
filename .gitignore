@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# LaTeX
+*.aux
+*.log
+*.out
+*.toc
+*.pdf
+
+# Output
+output/
+dist/
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
