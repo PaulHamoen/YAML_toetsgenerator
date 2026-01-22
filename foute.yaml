@@ -1,0 +1,17 @@
+toets:
+  opgaven:
+    - titel: "Kwadratische Vergelijkingen Herleiden"
+      needspace_cm: 20.5
+      delen:
+        - tekst: "Gegeven is de kwadratische vergelijking \\(x^2 + 6x + 8 = 0\\). Verdeel deze vergelijking in factoren."
+          onderdelen:
+            - punten: 1
+              mode: "math"
+              inhoud: "(x+2)(x+4) = 0"
+            - mode: "latex"
+              grafiek: |
+                \begin{tikzpicture}
+                  \draw[->] (-5,0) -- (3,0);
+                  \draw[->] (0,-1) -- (0,3);
+                  \draw[domain=-4:-2] plot (\x,\x*\x+6*\x+8);
+                \end{tikzpicture}

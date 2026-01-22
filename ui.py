@@ -1,5 +1,6 @@
 # ui.py
 import tkinter as tk
+import subprocess
 from tkinter import ttk, messagebox, filedialog
 from pathlib import Path
 
@@ -12,6 +13,28 @@ from core import (
     genereer_pdf,
 )
 
+def get_ollama_models() -> list[str]:
+    try:
+        result = subprocess.run(
+            ["ollama", "list"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+    except Exception:
+        return []
+
+    lines = result.stdout.strip().splitlines()
+    if len(lines) <= 1:
+        return []
+
+    models = []
+    for line in lines[1:]:  # skip header
+        parts = line.split()
+        if parts:
+            models.append(parts[0])
+
+    return models
 
 class ToetsUI(tk.Tk):
     def __init__(self):
@@ -21,9 +44,17 @@ class ToetsUI(tk.Tk):
         self.geometry("1200x800")
         self.ai_outputs = []
         self.ai_index = -1
+        self.available_models = get_ollama_models()
+        self.selected_model = tk.StringVar()
 
-        # AI-client (nu vast Ollama)
-        self.ai = OllamaClient(model="qwen3:4b")
+        default = (
+            self.available_models[0]
+            if self.available_models
+            else "phi3:latest"
+        )
+        self.selected_model.set(default)
+
+        self.ai = OllamaClient(model=default)
 
         self._build_ui()
 
@@ -40,6 +71,18 @@ class ToetsUI(tk.Tk):
         # ======================
         left = ttk.Frame(main, width=280)
         main.add(left, weight=0)
+        ttk.Label(left, text="Ollama model").pack(
+            anchor="w", padx=10, pady=(10, 0)
+        )
+
+        self.model_dropdown = ttk.Combobox(
+            left,
+            textvariable=self.selected_model,
+            values=self.available_models,
+            state="readonly"
+        )
+        self.model_dropdown.pack(fill=tk.X, padx=10, pady=(0, 10))
+        self.model_dropdown.bind("<<ComboboxSelected>>", self.on_model_change)
 
         # AI prompt
         ttk.Label(left, text="AI prompt").pack(
@@ -110,6 +153,11 @@ class ToetsUI(tk.Tk):
     # ======================
     # Acties
     # ======================
+
+    def on_model_change(self, event=None):
+        model = self.selected_model.get()
+        self.ai.model = model
+
 
     def prompt_ai(self):
         """
@@ -197,7 +245,12 @@ class ToetsUI(tk.Tk):
             genereer_pdf(latex_text, out)
             messagebox.showinfo("Klaar", f"PDF gegenereerd:\n{out}")
         except Exception as e:
-            messagebox.showerror("PDF-fout", str(e))
+            import traceback
+            messagebox.showerror(
+                "PDF-fout",
+                str(e) + "\n\n" + traceback.format_exc()
+            )
+
 
     # ======================
     # Helpers
