@@ -21,38 +21,47 @@ class YAMLSyntaxFout(Exception):
 # YAML laden & validatie
 # ============================================================
 
-def laad_yaml(pad: Path) -> dict:
+def laad_yaml_string(yaml_text: str) -> dict:
     try:
-        return yaml.safe_load(pad.read_text(encoding="utf-8"))
+        return yaml.safe_load(yaml_text)
     except yaml.YAMLError as e:
-        raise YAMLSyntaxFout(str(e))
+        raise Exception(f"YAML-fout: {e}")
+
 
 
 def valideer_toetsstructuur(toets: dict):
-    if not isinstance(toets, dict):
-        raise ToetsFout("Root 'toets' moet een dictionary zijn")
-
-    if "opgaven" not in toets:
+    if "opgaven" not in toets or not isinstance(toets["opgaven"], list):
         raise ToetsFout("YAML mist sleutel: toets.opgaven")
-
-    if not isinstance(toets["opgaven"], list):
-        raise ToetsFout("toets.opgaven moet een lijst zijn")
 
     for i, opg in enumerate(toets["opgaven"], start=1):
         if "titel" not in opg:
             raise ToetsFout(f"Opgave {i} mist 'titel'")
-        if "onderdelen" not in opg:
-            raise ToetsFout(f"Opgave {i} mist 'onderdelen'")
 
-        for j, ond in enumerate(opg["onderdelen"], start=1):
-            if "punten" not in ond:
-                raise ToetsFout(f"Opgave {i}, onderdeel {j}: mist 'punten'")
-            if "inhoud" not in ond:
-                raise ToetsFout(f"Opgave {i}, onderdeel {j}: mist 'inhoud'")
-            if ond.get("mode", "latex") not in ("math", "latex"):
-                raise ToetsFout(
-                    f"Opgave {i}, onderdeel {j}: mode moet 'math' of 'latex' zijn"
-                )
+        if "delen" not in opg or not isinstance(opg["delen"], list):
+            raise ToetsFout(f"Opgave {i} mist 'delen'")
+
+        for j, deel in enumerate(opg["delen"], start=1):
+            if "onderdelen" not in deel or not isinstance(deel["onderdelen"], list):
+                raise ToetsFout(f"Opgave {i}, deel {j} mist 'onderdelen'")
+
+            for k, ond in enumerate(deel["onderdelen"], start=1):
+                if "grafiek" in ond:
+                    continue  # grafiek heeft geen punten/inhoud
+
+                if "punten" not in ond:
+                    raise ToetsFout(
+                        f"Opgave {i}, deel {j}, onderdeel {k} mist 'punten'"
+                    )
+
+                if "inhoud" not in ond:
+                    raise ToetsFout(
+                        f"Opgave {i}, deel {j}, onderdeel {k} mist 'inhoud'"
+                    )
+
+                if ond.get("mode", "latex") not in ("math", "latex"):
+                    raise ToetsFout(
+                        f"Opgave {i}, deel {j}, onderdeel {k}: ongeldige mode"
+                    )
 
 
 # ============================================================
@@ -60,27 +69,27 @@ def valideer_toetsstructuur(toets: dict):
 # ============================================================
 
 def bereken_statistiek(toets: dict) -> dict:
-    """
-    Bereken het aantal opgaven, totaal punten en verlengers.
-    Retourneert altijd een dictionary, ook als er geen opgaven zijn.
-    """
     totaal_punten = 0
     verlengers = 0
 
     for opg in toets.get("opgaven", []):
-        for ond in opg.get("onderdelen", []):
-            try:
+        for deel in opg.get("delen", []):
+            default_verl = deel.get("verlenger", False)
+
+            for ond in deel.get("onderdelen", []):
+                if "grafiek" in ond:
+                    continue
+
                 punten = int(ond.get("punten", 0))
                 totaal_punten += punten
-                if ond.get("verlenger", False):
+
+                if ond.get("verlenger", default_verl):
                     verlengers += punten
-            except (ValueError, TypeError):
-                raise ToetsFout(f"Ongeldige puntenwaarde: {ond.get('punten')} (moet een getal zijn)")
 
     return {
         "aantal_opgaven": len(toets.get("opgaven", [])),
         "totaal_punten": totaal_punten,
-        "verlengers": verlengers
+        "verlengers": verlengers,
     }
 
 
