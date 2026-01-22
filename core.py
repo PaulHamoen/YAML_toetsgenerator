@@ -3,6 +3,8 @@ import yaml
 import os
 import subprocess
 import tempfile
+import shutil
+
 from pathlib import Path
 # ============================================================
 # Exceptions
@@ -15,6 +17,18 @@ class ToetsFout(Exception):
 class YAMLSyntaxFout(Exception):
     """Syntaxfout in YAML."""
     pass
+
+# ============================================================
+# Check system dependancies
+# ============================================================
+
+def check_pdflatex():
+    if shutil.which("pdflatex") is None:
+        raise RuntimeError(
+            "pdflatex niet gevonden.\n"
+            "Installeer MiKTeX (Windows) of TeX Live.\n"
+            "Controleer met: pdflatex --version"
+        )
 
 
 # ============================================================
@@ -216,6 +230,7 @@ import tempfile
 from pathlib import Path
 
 def genereer_pdf(laatst_gegenereerde_latex: str, output_pdf: str) -> None:
+    check_pdflatex()
     """
     Genereer een PDF van de LaTeX-code met pdflatex.
     """
@@ -240,4 +255,4 @@ def genereer_pdf(laatst_gegenereerde_latex: str, output_pdf: str) -> None:
         if not pdf_bron.exists():
             raise FileNotFoundError("PDF niet gegenereerd (pdflatex-fout)")
 
-        pdf_bron.rename(output_pdf)
+        pdf_bron.replace(output_pdf)

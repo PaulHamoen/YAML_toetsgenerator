@@ -1,8 +1,9 @@
 # ui.py
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
-
 from pathlib import Path
+
+from ai.ollama import OllamaClient
 
 from core import (
     laad_yaml_string,
@@ -11,17 +12,18 @@ from core import (
     genereer_pdf,
 )
 
-# (later) AI
-# from ai.ollama import OllamaClient
-# from ai.openai import OpenAIClient
-
 
 class ToetsUI(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.title("Toetsgenerator v0.2")
+        self.title("Toetsgenerator v0.2 (AI)")
         self.geometry("1200x800")
+        self.ai_outputs = []
+        self.ai_index = -1
+
+        # AI-client (nu vast Ollama)
+        self.ai = OllamaClient(model="qwen3:4b")
 
         self._build_ui()
 
@@ -33,25 +35,61 @@ class ToetsUI(tk.Tk):
         main = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
         main.pack(fill=tk.BOTH, expand=True)
 
-        # ========== LINKS: knoppen ==========
-        left = ttk.Frame(main, width=200)
+        # ======================
+        # LINKS: AI + acties
+        # ======================
+        left = ttk.Frame(main, width=280)
         main.add(left, weight=0)
 
-        ttk.Button(left, text="Prompt AI → YAML", command=self.prompt_ai).pack(
-            fill=tk.X, padx=10, pady=5
+        # AI prompt
+        ttk.Label(left, text="AI prompt").pack(
+            anchor="w", padx=10, pady=(10, 0)
         )
+
+        self.prompt_text = tk.Text(left, height=8, wrap="word")
+        self.prompt_text.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+        # Voorbeeldprompt
+        self.prompt_text.insert(
+            "1.0",
+            "Maak een korte toets voor vwo 3 over herleiden en kwadratische vergelijkingen."
+        )
+
+        ttk.Button(
+            left,
+            text="Genereer YAML (AI)",
+            command=self.prompt_ai
+        ).pack(fill=tk.X, padx=10, pady=5)
 
         ttk.Separator(left).pack(fill=tk.X, padx=10, pady=10)
-
-        ttk.Button(left, text="Preview → LaTeX", command=self.preview).pack(
-            fill=tk.X, padx=10, pady=5
+        ttk.Label(left, text="AI-voorstel").pack(
+            anchor="w", padx=10, pady=(10, 0)
         )
 
-        ttk.Button(left, text="Genereer PDF", command=self.gen_pdf).pack(
-            fill=tk.X, padx=10, pady=5
+        self.ai_output_text = tk.Text(
+            left,
+            height=10,
+            wrap="word",
+            state="disabled",
+            background="#f5f5f5"
         )
+        self.ai_output_text.pack(fill=tk.X, padx=10, pady=(0, 10))
 
-        # ========== RECHTS: editors ==========
+        ttk.Button(
+            left,
+            text="Preview → LaTeX",
+            command=self.preview
+        ).pack(fill=tk.X, padx=10, pady=5)
+
+        ttk.Button(
+            left,
+            text="Genereer PDF",
+            command=self.gen_pdf
+        ).pack(fill=tk.X, padx=10, pady=5)
+
+        # ======================
+        # RECHTS: editors
+        # ======================
         right = ttk.PanedWindow(main, orient=tk.VERTICAL)
         main.add(right, weight=1)
 
@@ -75,16 +113,33 @@ class ToetsUI(tk.Tk):
 
     def prompt_ai(self):
         """
-        (Voorlopig placeholder)
-        Hier komt straks:
-        - prompt ophalen
-        - AI aanroepen
-        - YAML terugzetten in editor
+        AI → genereer YAML-voorstel (zonder YAML te wijzigen)
         """
-        messagebox.showinfo(
-            "AI",
-            "AI-integratie volgt.\n\nDit vult straks de YAML-editor.",
-        )
+        user_prompt = self.prompt_text.get("1.0", tk.END).strip()
+
+        if not user_prompt:
+            messagebox.showwarning(
+                "Geen prompt",
+                "Voer eerst een AI-prompt in."
+            )
+            return
+
+        try:
+            yaml_text = self.ai.generate_yaml(user_prompt)
+
+            # bewaar in geschiedenis
+            self.ai_outputs.append(yaml_text)
+            self.ai_index = len(self.ai_outputs) - 1
+
+            # toon in AI-uitvoervak
+            self.ai_output_text.configure(state="normal")
+            self.ai_output_text.delete("1.0", tk.END)
+            self.ai_output_text.insert("1.0", yaml_text)
+            self.ai_output_text.configure(state="disabled")
+
+        except Exception as e:
+            messagebox.showerror("AI-fout", str(e))
+
 
     def preview(self):
         """
@@ -127,7 +182,7 @@ class ToetsUI(tk.Tk):
         if not latex_text.strip():
             messagebox.showwarning(
                 "Geen LaTeX",
-                "Er staat geen LaTeX in het preview-venster.",
+                "Er staat geen LaTeX in het preview-venster."
             )
             return
 
@@ -153,7 +208,9 @@ class ToetsUI(tk.Tk):
         Laad template altijd relatief aan dit bestand
         """
         base = Path(__file__).resolve().parent
-        return (base / "templates" / "standaard.tex").read_text(encoding="utf-8")
+        return (base / "templates" / "standaard.tex").read_text(
+            encoding="utf-8"
+        )
 
 
 if __name__ == "__main__":
