@@ -6,6 +6,21 @@ import tempfile
 import shutil
 
 from pathlib import Path
+
+def _heeft_echte_items(onderdelen: list, start_index: int) -> bool:
+    """
+    True als er na start_index nog minstens één onderdeel is dat een echte \item oplevert
+    (dus: niet alleen grafiek-blokken).
+    """
+    for ond in onderdelen[start_index:]:
+        if "grafiek" in ond:
+            continue
+        # een "echte" item: heeft inhoud of punten, maakt niet uit
+        if ond.get("inhoud") or ond.get("punten", 0):
+            return True
+    return False
+
+
 # ============================================================
 # Exceptions
 # ============================================================
@@ -29,7 +44,6 @@ def check_pdflatex():
             "Installeer MiKTeX (Windows) of TeX Live.\n"
             "Controleer met: pdflatex --version"
         )
-
 
 # ============================================================
 # YAML laden & validatie
@@ -136,48 +150,70 @@ def render_block(mode: str, inhoud: str) -> str:
 
 def render_opgaven(toets: dict) -> str:
     """
-    Render alle opgaven naar LaTeX, inclusief:
-    - needspace_cm op opgave-niveau
-    - Meerdere delen per opgave (met eigen tekst)
-    - Doorlopende a), b), c) over alle delen
-    - Grafieken tussen onderdelen zonder enumerate-fouten
-    - Punten en verlengers
+    Definitieve renderer (EINDVERSIE):
+
+    - Opgaven: 1., 2., 3. (exact één enumerate)
+    - Onderdelen per opgave: a), b), c. (exact één enumerate per opgave)
+    - Tekst altijd als \\item[]
+    - Grafieken mogen vóór / tussen / na items staan
+    - Enumerate wordt alleen hervat als dat structureel logisch is
+    - Nooit \\item buiten een enumerate
+    - Nooit lege enumerate
     """
     out = []
 
-    for opg in toets.get("opgaven", []):
-        # Ruimte afdwingen vóór de opgave
-        needspace = opg.get("needspace_cm", 0)
-        if needspace:
-            out.append(rf"\needspace{{{needspace}cm}}")
+    # === OPGAVEN-ENUMERATE (1x) ===
+    out.append(r"\begin{enumerate}[label=\textbf{\arabic*.}, ref=\arabic*]")
 
-        # Start opgave
-        out.append(r"\begin{enumerate}[label=\textbf{\arabic*.}, ref=\arabic*]")
+    for opg in toets.get("opgaven", []):
+        # Ruimte vóór opgave
+        if opg.get("needspace_cm"):
+            out.append(rf"\needspace{{{opg['needspace_cm']}cm}}")
+
+        # Opgave-titel (genummerd)
         out.append(rf"\item \opgave{{{opg['titel']}}}")
 
-        # Start één doorlopende onderdelen-enumerate
+        # === ONDERDELEN-ENUMERATE (1x per opgave) ===
         out.append(r"\begin{enumerate}[label=\alph*), ref=\alph*]")
 
+        enumerate_open = True
+        item_ooit_gehad = False     # elk \\item of \\item[]
+        resume_open = False
+        item_na_resume = False
+
         for deel in opg.get("delen", []):
-            # tekst per deel
+            # Tekst → altijd geldig enumerate-item
             if "tekst" in deel:
-                tekst_mode = deel.get("tekst_mode", "latex")
-                tekst = render_block(tekst_mode, deel["tekst"])
+                tekst = render_block(
+                    deel.get("tekst_mode", "latex"),
+                    deel["tekst"]
+                )
                 out.append(rf"\item[] {tekst}")
-            # LET OP: tekst moet altijd via \item[] binnen enumerate
+                item_ooit_gehad = True
 
             default_verl = deel.get("verlenger", False)
 
             for ond in deel.get("onderdelen", []):
-                # Grafiek → enumerate tijdelijk sluiten
-                if "grafiek" in ond:
-                    out.append(r"\end{enumerate}")
-                    out.append(ond["grafiek"])
-                    out.append(
-                        r"\begin{enumerate}[resume*, label=\alph*), ref=\alph*]"
-                    )
+                grafiek = ond.get("grafiek", "")
+                if isinstance(grafiek, str) and grafiek.strip():
+                    # Sluit enumerate vóór grafiek
+                    if enumerate_open:
+                        out.append(r"\end{enumerate}")
+                        enumerate_open = False
+
+                    out.append(grafiek)
+
+                    # Hervat enumerate ALLEEN als er al items waren
+                    if item_ooit_gehad:
+                        out.append(
+                            r"\begin{enumerate}[resume*, label=\alph*), ref=\alph*]"
+                        )
+                        enumerate_open = True
+                        resume_open = True
+                        item_na_resume = False
                     continue
 
+                # ===== NORMAAL ITEM =====
                 punten = int(ond.get("punten", 0))
                 is_verl = ond.get("verlenger", default_verl)
 
@@ -186,20 +222,33 @@ def render_opgaven(toets: dict) -> str:
                     cmd = r"\verlpunt" if is_verl else r"\punten"
                     punten_cmd = rf"{cmd}{{{punten}}} "
 
-                inhoud_mode = ond.get("mode", "latex")
-                inhoud_latex = render_block(inhoud_mode, ond.get("inhoud", ""))
+                inhoud = render_block(
+                    ond.get("mode", "latex"),
+                    ond.get("inhoud", "")
+                )
 
-                out.append(rf"\item {punten_cmd}{inhoud_latex}")
+                out.append(rf"\item {punten_cmd}{inhoud}")
+                item_ooit_gehad = True
+
+                if resume_open:
+                    item_na_resume = True
+
+        # Dummy item als grafiek het laatste was NA resume
+        if resume_open and not item_na_resume:
+            out.append(r"\item[]~")
 
         # Sluit onderdelen-enumerate
-        out.append(r"\end{enumerate}")
+        if enumerate_open:
+            out.append(r"\end{enumerate}")
 
-        # Sluit opgave
-        out.append(r"\end{enumerate}")
         out.append(r"\vspace{1cm}")
         out.append("\n% ======================\n")
 
+    # Sluit opgaven-enumerate
+    out.append(r"\end{enumerate}")
+
     return "\n".join(out)
+
 
 
 # ============================================================
