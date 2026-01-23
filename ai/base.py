@@ -5,3 +5,11 @@ class AIClient:
         Gooit een Exception bij fouten.
         """
         raise NotImplementedError
+
+class BaseLLMClient:
+    """
+    Abstracte basis voor alle LLM-clients
+    """
+
+    def generate_yaml(self, prompt: str) -> str:
+        raise NotImplementedError
