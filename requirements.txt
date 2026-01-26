@@ -1,1 +1,32 @@
-requests
+# ======================
+# Core functionaliteit
+# ======================
+
+PyYAML>=6.0
+python-dotenv>=1.0.0
+
+# ======================
+# UI
+# ======================
+
+# Tkinter zit standaard in CPython (NIET pip-installeren)
+
+# ======================
+# AI / LLM
+# ======================
+
+requests>=2.31.0
+
+# ======================
+# PDF / LaTeX pipeline
+# ======================
+
+# Geen Python dependency:
+# - pdflatex (MiKTeX / TeX Live) is een systeemafhankelijkheid
+
+# ======================
+# Optioneel / toekomst
+# ======================
+
+# pygments>=2.17.0        # syntax highlighting (later)
+# rich>=13.7.0            # betere console debug (optioneel)
