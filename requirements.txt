@@ -1,1 +1,8 @@
-requests
+# YAML parsing
+PyYAML>=6.0
+
+# Environment variables (.env)
+python-dotenv>=1.0.0
+
+# HTTP requests (voor Mistral API)
+requests>=2.31.0

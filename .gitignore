@@ -1,20 +1,46 @@
+# ======================
+# Secrets
+# ======================
+.env
+ai/.env
+
+# ======================
 # Python
+# ======================
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
 
-# LaTeX
+# ======================
+# Virtual environments
+# ======================
+.venv/
+venv/
+env/
+
+# ======================
+# LaTeX build artifacts
+# ======================
 *.aux
 *.log
 *.out
 *.toc
 *.pdf
+*.synctex.gz
+*.fls
+*.fdb_latexmk
 
-# Output
+# ======================
+# Build / output
+# ======================
 output/
 dist/
 
+# ======================
 # OS / IDE
+# ======================
 .DS_Store
+Thumbs.db
 .vscode/
 .idea/
