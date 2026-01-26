@@ -32,6 +32,23 @@ def laad_yaml_string(yaml_text: str) -> dict:
 
     return data
 
+def bereken_punten(toets: dict) -> dict:
+    totaal = 0
+    verl = 0
+
+    for opg in toets.get("opgaven", []):
+        for deel in opg.get("delen", []):
+            for ond in deel.get("onderdelen", []):
+                punten = int(ond.get("punten", 0))
+                totaal += punten
+                if ond.get("verlenger", False):
+                    verl += punten
+
+    return {
+        "totaal": totaal,
+        "verlengers": verl,
+    }
+
 
 # ======================
 # Validatie
@@ -137,11 +154,23 @@ def render_document(
     toets: dict,
     template_text: str,
     titel: str = "Toets",
-    instructie: str = "",
-    se: bool = False,
+    inleiding: str = "",
+    logo: str = "",
 ) -> str:
-    opgaven_latex = render_opgaven(toets)
-    return template_text.replace("{{TOETS}}", opgaven_latex)
+    from core import bereken_punten
+
+    stats = bereken_punten(toets)
+    toets_latex = render_opgaven(toets)
+
+    return (
+        template_text
+        .replace("{{TOETS}}", toets_latex)
+        .replace("{{TITEL}}", titel)
+        .replace("{{INLEIDING}}", inleiding)
+        .replace("{{TOTAAL_PUNTEN}}", str(stats["totaal"]))
+        .replace("{{VERL_PUNTEN}}", str(stats["verlengers"]))
+        .replace("{{LOGO}}", logo)
+    )
 
 
 # ======================
