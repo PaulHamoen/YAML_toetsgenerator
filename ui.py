@@ -177,7 +177,32 @@ class ToetsUI(tk.Tk):
             data = laad_yaml_string(self.yaml_text.get("1.0", tk.END))
             toets = valideer_en_normaliseer_toets(data)
             template = self._load_template()
-            latex = render_document(toets, template)
+
+            voorblad = ""
+
+            if toets["modus"] == "se":
+                voorblad = rf"""
+            \thispagestyle{{empty}}
+            \vspace*{{\fill}}
+            \begin{{center}}
+            \Large SE-toets
+
+            \vspace{{1cm}}
+            \textbf{{Naam:}}\hfill\textbf{{Klas:}}
+
+            \vspace{{1cm}}
+            Beantwoord alle vragen duidelijk en volledig.
+            \end{{center}}
+            \vspace*{{\fill}}
+            \newpage
+            """
+
+            latex = render_document(
+                toets,
+                template,
+                voorblad=voorblad
+            )
+
 
             self.latex_text.delete("1.0", tk.END)
             self.latex_text.insert("1.0", latex)

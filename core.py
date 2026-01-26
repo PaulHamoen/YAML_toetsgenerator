@@ -206,8 +206,6 @@ def render_opgaven(toets: dict) -> str:
     out.append(r"\end{enumerate}")
     return "\n".join(out)
 
-
-
 # ======================
 # Document
 # ======================
@@ -218,9 +216,16 @@ def render_document(
     titel: str = "Toets",
     instructie: str = "",
     se: bool = False,
+    voorblad: str = "",
 ) -> str:
     opgaven_latex = render_opgaven(toets)
-    return template_text.replace("{{TOETS}}", opgaven_latex)
+
+    return (
+        template_text
+        .replace("{{VOORBLAD}}", voorblad)
+        .replace("{{TOETS}}", opgaven_latex)
+    )
+
 
 # ======================
 # PDF generatie
