@@ -80,19 +80,34 @@ def valideer_toetsstructuur(toets: dict):
     for i, opg in enumerate(toets["opgaven"], start=1):
         if "titel" not in opg:
             raise ToetsFout(f"Opgave {i} mist 'titel'")
-        if "onderdelen" not in opg:
-            raise ToetsFout(f"Opgave {i} mist 'onderdelen'")
 
-        for j, ond in enumerate(opg["onderdelen"], start=1):
-            if "punten" not in ond:
-                raise ToetsFout(f"Opgave {i}, onderdeel {j}: mist 'punten'")
-            if "inhoud" not in ond:
-                raise ToetsFout(f"Opgave {i}, onderdeel {j}: mist 'inhoud'")
-            if ond.get("mode", "latex") not in ("math", "latex"):
-                raise ToetsFout(
-                    f"Opgave {i}, onderdeel {j}: mode moet 'math' of 'latex' zijn"
-                )
+        if "delen" not in opg or not isinstance(opg["delen"], list):
+            raise ToetsFout(f"Opgave {i} mist 'delen'")
 
+        for d, deel in enumerate(opg["delen"], start=1):
+            if "onderdelen" not in deel or not isinstance(deel["onderdelen"], list):
+                raise ToetsFout(f"Opgave {i}, deel {d} mist 'onderdelen'")
+
+            for j, ond in enumerate(deel["onderdelen"], start=1):
+                if "mode" not in ond:
+                    raise ToetsFout(
+                        f"Opgave {i}, deel {d}, onderdeel {j}: mist 'mode'"
+                    )
+
+                if ond["mode"] not in ("math", "latex"):
+                    raise ToetsFout(
+                        f"Opgave {i}, deel {d}, onderdeel {j}: mode moet 'math' of 'latex' zijn"
+                    )
+
+                if "inhoud" not in ond and "grafiek" not in ond:
+                    raise ToetsFout(
+                        f"Opgave {i}, deel {d}, onderdeel {j}: mist 'inhoud' of 'grafiek'"
+                    )
+
+                if "punten" in ond and not isinstance(ond["punten"], int):
+                    raise ToetsFout(
+                        f"Opgave {i}, deel {d}, onderdeel {j}: 'punten' moet een integer zijn"
+                    )
 
 # ============================================================
 # Statistiek

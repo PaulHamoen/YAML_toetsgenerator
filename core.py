@@ -37,18 +37,102 @@ def laad_yaml_string(yaml_text: str) -> dict:
 # Validatie
 # ======================
 
-def valideer_toetsstructuur(toets: dict):
-    if "opgaven" not in toets:
-        raise ToetsFout("YAML mist sleutel: toets.opgaven")
+def valideer_en_normaliseer_toets(data: dict) -> dict:
+    print("=== VALIDATOR ENTRY ===")
+    print("DATA KEYS IN VALIDATOR:", list(data.keys()))
 
-    if not isinstance(toets["opgaven"], list):
-        raise ToetsFout("toets.opgaven moet een lijst zijn")
+    if not isinstance(data, dict):
+        raise ToetsFout("YAML root moet een dictionary zijn")
 
-    for i, opg in enumerate(toets["opgaven"], start=1):
-        if "titel" not in opg:
-            raise ToetsFout(f"Opgave {i} mist 'titel'")
-        if "delen" not in opg:
-            raise ToetsFout(f"Opgave {i} mist 'delen'")
+    print("CHECK se/pw:", "se" in data, "pw" in data)
+
+    if "se" not in data and "pw" not in data:
+        raise ToetsFout("YAML moet beginnen met 'se:' of 'pw:'")
+
+    if "se" in data and "pw" in data:
+        raise ToetsFout("YAML mag niet tegelijk 'se:' en 'pw:' bevatten")
+
+    modus = "se" if "se" in data else "pw"
+    items = data[modus]
+
+    if not isinstance(items, list):
+        raise ToetsFout(f"'{modus}' moet een lijst zijn")
+
+    opgaven = []
+    huidige_opgave = None
+
+    def start_opgave(titel: str):
+        return {"titel": titel, "items": []}
+
+    if modus == "se":
+        huidige_opgave = start_opgave("")
+        opgaven.append(huidige_opgave)
+
+    for idx, item in enumerate(items, start=1):
+        if not isinstance(item, dict):
+            raise ToetsFout(f"Item {idx} is geen dictionary")
+
+        # ---------- opgave ----------
+        if "opgave" in item:
+            if modus == "se":
+                raise ToetsFout("Sleutel 'opgave' is niet toegestaan in 'se'")
+
+            titel = item["opgave"]
+            if not isinstance(titel, str):
+                raise ToetsFout("Opgave-titel moet een string zijn")
+
+            huidige_opgave = start_opgave(titel)
+            opgaven.append(huidige_opgave)
+            continue
+
+        if huidige_opgave is None:
+            raise ToetsFout(
+                "Proefwerk moet beginnen met een 'opgave'"
+            )
+
+        # ---------- vraag ----------
+        if "punten" in item:
+            if "vraag" not in item:
+                raise ToetsFout(
+                    f"Item {idx} heeft 'punten' maar geen 'vraag'"
+                )
+            if not isinstance(item["punten"], int):
+                raise ToetsFout(
+                    f"Item {idx}: 'punten' moet een integer zijn"
+                )
+
+            huidige_opgave["items"].append({
+                "type": "vraag",
+                "punten": item["punten"],
+                "verlenger": item.get("verlenger", False),
+                "mode": item.get("mode", "latex"),
+                "inhoud": item["vraag"],
+            })
+            continue
+
+        # ---------- tekst ----------
+        if "tekst" in item:
+            huidige_opgave["items"].append({
+                "type": "tekst",
+                "mode": item.get("mode", "latex"),
+                "inhoud": item["tekst"],
+            })
+            continue
+
+        # ---------- grafiek ----------
+        if "grafiek" in item:
+            huidige_opgave["items"].append({
+                "type": "grafiek",
+                "inhoud": item["grafiek"],
+            })
+            continue
+
+        raise ToetsFout(f"Onbekend item op positie {idx}")
+
+    return {
+        "modus": modus,
+        "opgaven": opgaven,
+    }
 
 
 # ======================
@@ -70,63 +154,58 @@ def render_block(mode: str, inhoud: str) -> str:
 def render_opgaven(toets: dict) -> str:
     out = []
 
-    out.append(r"\begin{enumerate}[label=\textbf{\arabic*.}, ref=\arabic*]")
+    if toets["modus"] == "se":
+        out.append(r"\begin{enumerate}[label=\textbf{\arabic*.}]")
 
-    for opg in toets.get("opgaven", []):
-        if opg.get("needspace_cm"):
-            out.append(rf"\needspace{{{opg['needspace_cm']}cm}}")
+        for opg in toets["opgaven"]:
+            for item in opg["items"]:
+                if item["type"] == "tekst":
+                    out.append(r"\item[] " + render_block(item["mode"], item["inhoud"]))
 
-        out.append(rf"\item \opgave{{{opg['titel']}}}")
-        out.append(r"\begin{enumerate}[label=\alph*), ref=\alph*]")
-
-        enumerate_open = True
-        had_item = False
-
-        for deel in opg.get("delen", []):
-            if "tekst" in deel:
-                out.append(rf"\item[] {render_block('latex', deel['tekst'])}")
-
-            for ond in deel.get("onderdelen", []):
-                if "grafiek" in ond and ond["grafiek"].strip():
-                    if enumerate_open:
-                        out.append(r"\end{enumerate}")
-                        enumerate_open = False
-
-                    out.append(ond["grafiek"])
-
-                    if had_item:
-                        out.append(
-                            r"\begin{enumerate}[resume*, label=\alph*), ref=\alph*]"
-                        )
-                        enumerate_open = True
-                    continue
-
-                punten = int(ond.get("punten", 0))
-                verl = ond.get("verlenger", False)
-
-                punten_cmd = ""
-                if punten:
-                    punten_cmd = (
-                        rf"\verlpunt{{{punten}}} "
-                        if verl else rf"\punten{{{punten}}} "
+                elif item["type"] == "grafiek":
+                    out.append(r"\item[] " + item["inhoud"])
+                elif item["type"] == "vraag":
+                    punten = item["punten"]
+                    verl = item["verlenger"]
+                    cmd = r"\verlpunt" if verl else r"\punten"
+                    out.append(
+                        rf"\item {cmd}{{{punten}}} "
+                        + render_block(item["mode"], item["inhoud"])
                     )
 
-                inhoud = render_block(
-                    ond.get("mode", "latex"),
-                    ond.get("inhoud", "")
+        out.append(r"\end{enumerate}")
+        return "\n".join(out)
+
+    # =========================
+    # PROEFWERK
+    # =========================
+
+    out.append(r"\begin{enumerate}[label=\textbf{\arabic*.}]")
+
+    for opg in toets["opgaven"]:
+        out.append(rf"\item \opgave{{{opg['titel']}}}")
+        out.append(r"\begin{enumerate}[label=\alph*)]")
+
+        for item in opg["items"]:
+            if item["type"] == "tekst":
+                out.append(rf"\item[] {render_block(item['mode'], item['inhoud'])}")
+            elif item["type"] == "grafiek":
+                    out.append(r"\item[] " + item["inhoud"])
+            elif item["type"] == "vraag":
+                punten = item["punten"]
+                verl = item["verlenger"]
+                cmd = r"\verlpunt" if verl else r"\punten"
+                out.append(
+                    rf"\item {cmd}{{{punten}}} "
+                    + render_block(item["mode"], item["inhoud"])
                 )
 
-                out.append(rf"\item {punten_cmd}{inhoud}")
-                had_item = True
-
-        if enumerate_open:
-            out.append(r"\end{enumerate}")
-
+        out.append(r"\end{enumerate}")
         out.append(r"\vspace{1cm}")
-        out.append("\n% ======================\n")
 
     out.append(r"\end{enumerate}")
     return "\n".join(out)
+
 
 
 # ======================
@@ -142,7 +221,6 @@ def render_document(
 ) -> str:
     opgaven_latex = render_opgaven(toets)
     return template_text.replace("{{TOETS}}", opgaven_latex)
-
 
 # ======================
 # PDF generatie

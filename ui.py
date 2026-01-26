@@ -12,7 +12,7 @@ from ai.mistral import MistralClient
 
 from core import (
     laad_yaml_string,
-    valideer_toetsstructuur,
+    valideer_en_normaliseer_toets,
     render_document,
     genereer_pdf,
 )
@@ -167,14 +167,21 @@ class ToetsUI(tk.Tk):
             messagebox.showerror("AI-fout", str(e))
 
     def preview(self):
+        raw = self.yaml_text.get("1.0", tk.END)
+
+        print("=== RAW YAML (repr) ===")
+        print(repr(raw))
+        print("=======================")
+
         try:
             data = laad_yaml_string(self.yaml_text.get("1.0", tk.END))
-            toets = data["toets"]
-            valideer_toetsstructuur(toets)
+            toets = valideer_en_normaliseer_toets(data)
             template = self._load_template()
             latex = render_document(toets, template)
+
             self.latex_text.delete("1.0", tk.END)
             self.latex_text.insert("1.0", latex)
+
         except Exception as e:
             messagebox.showerror("Preview-fout", str(e))
 

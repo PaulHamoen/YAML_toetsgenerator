@@ -1,0 +1,68 @@
+pw:
+  - opgave: "Snijpunten van een parabool en een lijn"
+  - mode: "latex"
+    tekst: >
+      Gegeven zijn de functies
+      \( f(x) = x^2 - 4x - 5 \) en
+      \( g(x) = 2x - 3 \).
+
+  - mode: "latex"
+    grafiek: |
+      \begin{center}
+      \begin{tikzpicture}
+        \begin{axis}[
+          axis lines=middle,
+          xmin=-2, xmax=6,
+          ymin=-8, ymax=6,
+          grid=both,
+          width=9cm,
+          height=7cm,
+          legend style={at={(0.02,0.98)},anchor=north west}
+        ]
+          \addplot[domain=-2:6, samples=200, thick] {x^2 - 4*x - 5};
+          \addlegendentry{$f(x)=x^2-4x-5$}
+
+          \addplot[domain=-2:6, samples=200, thick] {2*x - 3};
+          \addlegendentry{$g(x)=2x-3$}
+        \end{axis}
+      \end{tikzpicture}
+      \end{center}
+
+  - punten: 2
+    verlenger: true
+    mode: "latex"
+    vraag: >
+      Bereken de snijpunten van de parabool \(f\) met de \(x\)-as.
+
+  - punten: 3
+    mode: "latex"
+    vraag: >
+      Bereken de snijpunten van de parabool \(f\) en de lijn \(g\).
+
+  - opgave: "Afstand"
+  - mode: "latex"
+    grafiek: |
+      \begin{center}
+      \begin{tikzpicture}
+        \begin{axis}[
+          axis lines=middle,
+          xmin=-2, xmax=6,
+          ymin=-8, ymax=6,
+          grid=both,
+          width=9cm,
+          height=7cm,
+          legend style={at={(0.02,0.98)},anchor=north west}
+        ]
+          \addplot[domain=-2:6, samples=200, thick] {x^2 - 4*x - 5};
+          \addlegendentry{$f(x)=x^2-4x-5$}
+
+          \addplot[domain=-2:6, samples=200, thick] {2*x - 3};
+          \addlegendentry{$g(x)=2x-3$}
+        \end{axis}
+      \end{tikzpicture}
+      \end{center}
+  - punten: 3
+    mode: "latex"
+    vraag: >
+      Bereken de afstand tussen de twee snijpunten van
+      de parabool \(f\) en de lijn \(g\).

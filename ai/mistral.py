@@ -1,5 +1,6 @@
 import os
 import requests
+from pathlib import Path
 from ai.base import BaseLLMClient
 
 
@@ -12,22 +13,24 @@ class MistralClient(BaseLLMClient):
         self.model = model
         self.endpoint = "https://api.mistral.ai/v1/chat/completions"
 
-    def generate_yaml(self, prompt: str) -> str:
-        system_prompt = (
-            "Je bent een tool die ALLEEN geldige YAML produceert.\n"
-            "Geen uitleg, geen tekst buiten YAML.\n"
-            "De YAML moet exact voldoen aan deze structuur:\n\n"
-            "toets:\n"
-            "  opgaven:\n"
-            "    - titel: string\n"
-            "      delen:\n"
-            "        - tekst: string\n"
-            "          onderdelen:\n"
-            "            - punten: int\n"
-            "              mode: \"math\" | \"latex\"\n"
-            "              inhoud: string\n"
-        )
+        self.system_prompt = self._load_system_prompt()
 
+    def _load_system_prompt(self) -> str:
+        prompt_path = Path(__file__).resolve().parent / "prompt.txt"
+
+        if not prompt_path.exists():
+            raise RuntimeError(
+                f"Systeemprompt ontbreekt: {prompt_path}"
+            )
+
+        content = prompt_path.read_text(encoding="utf-8").strip()
+
+        if not content:
+            raise RuntimeError("prompt.txt is leeg")
+
+        return content
+
+    def generate_yaml(self, prompt: str) -> str:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -36,7 +39,7 @@ class MistralClient(BaseLLMClient):
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": system_prompt},
+                {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": prompt},
             ],
             "temperature": 0.2,
