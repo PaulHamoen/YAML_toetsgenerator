@@ -140,7 +140,15 @@ class ToetsUI(tk.Tk):
         yaml_frame = ttk.LabelFrame(right, text="YAML (bron)")
         right.add(yaml_frame, weight=1)
 
-        self.yaml_text = tk.Text(yaml_frame, wrap="none")
+        self.yaml_text = tk.Text(
+            yaml_frame,
+            wrap="none",
+            background="#0d1b2a",
+            foreground="#e0e1dd",
+            insertbackground="#e0e1dd",
+            selectbackground="#415a77",
+        )
+
         self.yaml_text.pack(fill=tk.BOTH, expand=True)
 
         # LaTeX editor

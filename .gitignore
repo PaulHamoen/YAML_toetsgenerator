@@ -18,3 +18,7 @@ dist/
 .DS_Store
 .vscode/
 .idea/
+
+# API sleutels
+.env
+ai/.env
